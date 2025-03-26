@@ -10,13 +10,13 @@ PLAYER_SPEED = 5
 BULLET_SPEED = 7
 ENEMY_SPEED = 2
 WHITE = (255, 255, 255)
-MAX_HEALTH = 3
-WAVE_SIZE = 5
-ENEMY_ZIGZAG_SPEED = 3
-ENEMY_ZIGZAG_RANGE = 50
+MAX_HEALTH = 5
+WAVE_SIZE = 2 
+ENEMY_ZIGZAG_SPEED = 6
+ENEMY_ZIGZAG_RANGE = 70
 
 # Power-up settings
-POWERUP_SPAWN_RATE = 100  # 1 in 100 chance per frame (increased frequency)
+POWERUP_SPAWN_RATE = 250  # 1 in 300 chance per frame
 POWERUP_SIZE = (40, 40)
 FIRE_RATE_DURATION = 5000  # in milliseconds
 SHIELD_DURATION = 5000
@@ -62,7 +62,7 @@ wave_count = 1
 # Power-ups
 powerups = []
 
-# Bonus timers
+# Bonus timers and shooting cooldown
 fire_rate_bonus_end_time = 0
 shield_end_time = 0
 last_bullet_time = 0
@@ -139,7 +139,7 @@ def check_collisions():
         for bullet in bullets:
             if enemy['rect'].colliderect(bullet):
                 explosions.append((enemy['rect'].x, enemy['rect'].y))
-                score += 10
+                score += 1
                 bullets_to_remove.append(bullet)
                 enemies_to_remove.append(enemy)
                 break
@@ -180,9 +180,8 @@ def check_player_collision():
     current_time = pygame.time.get_ticks()
     for enemy in enemies:
         if player_rect.colliderect(enemy['rect']):
-            # If shield is active, destroy enemy and increase score
             if current_time < shield_end_time:
-                score += 10
+                score += 1
             else:
                 health -= 1
             # Enemy is removed in either case
@@ -227,7 +226,6 @@ def show_game_over():
     screen.blit(game_over_text, (WIDTH//2 - game_over_text.get_width()//2, HEIGHT//2 - 100))
     screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, HEIGHT//2))
     pygame.display.update()
-    # Wait for 3 seconds before quitting
     pygame.time.delay(3000)
 
 # Game Loop
@@ -236,7 +234,6 @@ spawn_wave()
 while running:
     pygame.time.delay(30)
     current_time = pygame.time.get_ticks()
-    # Reset bullet cooldown if fire rate bonus has expired
     if current_time > fire_rate_bonus_end_time:
         bullet_cooldown = default_bullet_cooldown
 
@@ -245,13 +242,19 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        # In default mode, fire on keydown events (one shot per press)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and current_time >= fire_rate_bonus_end_time:
+                bullets.append(pygame.Rect(player_x + 50, player_y + 30, 30, 15))
+                last_bullet_time = current_time
 
-    # Check if space is pressed for shooting (using cooldown)
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_SPACE]:
-        if current_time - last_bullet_time >= bullet_cooldown:
-            bullets.append(pygame.Rect(player_x + 50, player_y + 30, 30, 15))
-            last_bullet_time = current_time
+    if current_time < fire_rate_bonus_end_time:
+        # When fire_rate bonus is active, allow continuous shooting while holding space
+        if keys[pygame.K_SPACE]:
+            if current_time - last_bullet_time >= bullet_cooldown:
+                bullets.append(pygame.Rect(player_x + 50, player_y + 30, 30, 15))
+                last_bullet_time = current_time
 
     if keys[pygame.K_LEFT] and player_x > 0:
         player_x -= PLAYER_SPEED
@@ -262,7 +265,6 @@ while running:
     if keys[pygame.K_DOWN] and player_y < HEIGHT - 70:
         player_y += PLAYER_SPEED
 
-    # Randomly spawn power-ups
     if random.randint(1, POWERUP_SPAWN_RATE) == 1:
         spawn_powerup()
 
@@ -289,6 +291,5 @@ while running:
     if health <= 0:
         running = False
 
-# Display Game Over Message before exiting
 show_game_over()
 pygame.quit()
